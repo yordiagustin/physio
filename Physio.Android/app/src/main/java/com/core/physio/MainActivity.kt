@@ -79,7 +79,7 @@ fun WelcomeScreen() {
             painter = painterResource(id = R.drawable.welcome_image),
             contentDescription = "Image",
             modifier = Modifier
-                .size(300.dp)
+                .size(320.dp)
                 .padding(horizontal = 32.dp),
             contentScale = ContentScale.Fit
         )
@@ -100,15 +100,15 @@ fun WelcomeScreen() {
             fontSize = 16.sp,
             textAlign = TextAlign.Center,
             color = Color.Gray,
-            modifier = Modifier.padding(horizontal = 40.dp)
+            modifier = Modifier.padding(horizontal = 30.dp)
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(2f))
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(350.dp)
+                .height(320.dp)
                 .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
                 .background(Color(0xFF7E57C2))
                 .padding(horizontal = 24.dp, vertical = 32.dp),
