@@ -20,6 +20,14 @@ public class DatabaseService(IConfiguration configuration)
         });
     }
 
+    public async Task<Patient?> GetPatientByPhoneNumberAsync(string phoneNumber)
+    {
+        const string query = "SELECT id, name, surname FROM patient WHERE phone_number = @phoneNumber";
+        
+        return await ExecuteAsync(async connection =>
+            await connection.QueryFirstOrDefaultAsync<Patient>(query, new { PhoneNumber = phoneNumber }));
+    }
+
     public async Task<IEnumerable<Exercise>?> GetRoutineExercisesByDateAsync(DateTime date, Guid phaseId)
     {
         const string query = """
