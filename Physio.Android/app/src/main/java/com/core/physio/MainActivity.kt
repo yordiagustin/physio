@@ -171,7 +171,7 @@ fun WelcomeScreen() {
 
                 Button(
                     onClick = {
-                        val intent = Intent(context, VerifyCodeActivity::class.java)
+                        val intent = Intent(context, ExerciseValidationActivity::class.java)
                         context.startActivity(intent)
                     },
                     shape = CircleShape,
