@@ -24,7 +24,6 @@ class PoseAnalyzer(
             return
         }
 
-
         val mpImage = BitmapImageBuilder(bitmap).build()
         val frameTimestamp = System.nanoTime() / 1_000_000
 

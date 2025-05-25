@@ -70,12 +70,10 @@ class ExerciseValidationActivity : ComponentActivity()
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Only show the PoseEstimationScreen if camera permission is granted
                     if (hasCameraPermission) {
                         Log.d("ExerciseValidationActivity", "Camera permission granted, showing PoseEstimationScreen.")
                         PoseEstimationScreen(
                             executor = backgroundExecutor,
-                            // Pass the landmarker instance to the Composable
                             onLandmarkerInitialized = { landmarker ->
                                 this.poseLandmarker = landmarker
                             }
@@ -85,7 +83,6 @@ class ExerciseValidationActivity : ComponentActivity()
                             Log.d("ExerciseValidationActivity", "Camera permission not granted, requesting.")
                             checkAndRequestCameraPermission()
                         }
-                        // TODO: Show a message to the user here indicating that camera permission is needed.
                         Log.d("ExerciseValidationActivity", "Waiting for camera permission...")
                     }
                 }
@@ -120,7 +117,6 @@ class ExerciseValidationActivity : ComponentActivity()
         onLandmarkerInitialized: (PoseLandmarker?) -> Unit
     )
     {
-
         Log.d("PoseEstimationScreen", "PoseEstimationScreen Composable called/recomposed.")
 
         val context = LocalContext.current
@@ -138,7 +134,6 @@ class ExerciseValidationActivity : ComponentActivity()
                 context = context,
                 runningMode = RunningMode.LIVE_STREAM,
                 executor = executor,
-
                 resultListener = { result, width, height ->
                     poseResults = result
                     inputImageWidth = width
@@ -157,7 +152,7 @@ class ExerciseValidationActivity : ComponentActivity()
             CameraSelector.Builder().requireLensFacing(lensFacing).build()
         }
 
-        LaunchedEffect(lensFacing, poseLandmarker, hasCameraPermission) { // Added hasCameraPermission as a key
+        LaunchedEffect(lensFacing, poseLandmarker, hasCameraPermission) {
             val landmarkerInstance = poseLandmarker
 
             if (landmarkerInstance == null || !hasCameraPermission) {
@@ -199,7 +194,6 @@ class ExerciseValidationActivity : ComponentActivity()
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            // Display the camera preview
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 
             Log.d("PoseEstimationScreen", "Calling PoseOverlay Composable.")
@@ -257,7 +251,6 @@ class ExerciseValidationActivity : ComponentActivity()
         }
     }
 
-    // Extension function to get the CameraProvider
     private suspend fun Context.getCameraProvider(): ProcessCameraProvider =
         suspendCoroutine { continuation ->
             ProcessCameraProvider.getInstance(this).also { cameraProvider ->
