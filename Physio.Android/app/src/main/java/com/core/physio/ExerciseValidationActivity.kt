@@ -41,8 +41,7 @@ import java.util.concurrent.ExecutorService
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
-class ExerciseValidationActivity : ComponentActivity()
-{
+class ExerciseValidationActivity : ComponentActivity() {
     private var hasCameraPermission by mutableStateOf(false)
 
     private val requestPermissionLauncher =
@@ -71,7 +70,10 @@ class ExerciseValidationActivity : ComponentActivity()
                     color = MaterialTheme.colorScheme.background
                 ) {
                     if (hasCameraPermission) {
-                        Log.d("ExerciseValidationActivity", "Camera permission granted, showing PoseEstimationScreen.")
+                        Log.d(
+                            "ExerciseValidationActivity",
+                            "Camera permission granted, showing PoseEstimationScreen."
+                        )
                         PoseEstimationScreen(
                             executor = backgroundExecutor,
                             onLandmarkerInitialized = { landmarker ->
@@ -80,7 +82,10 @@ class ExerciseValidationActivity : ComponentActivity()
                         )
                     } else {
                         LaunchedEffect(Unit) {
-                            Log.d("ExerciseValidationActivity", "Camera permission not granted, requesting.")
+                            Log.d(
+                                "ExerciseValidationActivity",
+                                "Camera permission not granted, requesting."
+                            )
                             checkAndRequestCameraPermission()
                         }
                         Log.d("ExerciseValidationActivity", "Waiting for camera permission...")
@@ -105,6 +110,7 @@ class ExerciseValidationActivity : ComponentActivity()
             ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) -> {
                 hasCameraPermission = true
             }
+
             else -> {
                 requestPermissionLauncher.launch(Manifest.permission.CAMERA)
             }
@@ -115,8 +121,7 @@ class ExerciseValidationActivity : ComponentActivity()
     fun PoseEstimationScreen(
         executor: ExecutorService,
         onLandmarkerInitialized: (PoseLandmarker?) -> Unit
-    )
-    {
+    ) {
         Log.d("PoseEstimationScreen", "PoseEstimationScreen Composable called/recomposed.")
 
         val context = LocalContext.current
@@ -156,10 +161,16 @@ class ExerciseValidationActivity : ComponentActivity()
             val landmarkerInstance = poseLandmarker
 
             if (landmarkerInstance == null || !hasCameraPermission) {
-                Log.d("PoseEstimationScreen", "LaunchedEffect for CameraX binding: Waiting for Landmarker or Permission.")
+                Log.d(
+                    "PoseEstimationScreen",
+                    "LaunchedEffect for CameraX binding: Waiting for Landmarker or Permission."
+                )
                 return@LaunchedEffect
             }
-            Log.d("PoseEstimationScreen", "LaunchedEffect for CameraX binding: Landmarker ready and Camera Permission granted, binding CameraX.")
+            Log.d(
+                "PoseEstimationScreen",
+                "LaunchedEffect for CameraX binding: Landmarker ready and Camera Permission granted, binding CameraX."
+            )
 
             val cameraProvider = context.getCameraProvider()
             cameraProvider.unbindAll()
