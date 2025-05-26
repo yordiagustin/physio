@@ -23,7 +23,6 @@ fun PoseOverlay(
 
         Log.d("PoseOverlay", "Canvas drawing: ${poseResult.landmarks().size} pose lists detected.")
 
-
         val scaleFactorX = size.width / imageWidth.toFloat()
         val scaleFactorY = size.height / imageHeight.toFloat()
         Log.d("PoseOverlay", "Scale Factors: X=$scaleFactorX, Y=$scaleFactorY. Canvas Size: ${size.width}x${size.height}")

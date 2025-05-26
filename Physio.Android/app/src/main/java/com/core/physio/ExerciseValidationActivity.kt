@@ -1,17 +1,12 @@
 package com.core.physio
 
-import PoseAnalyzer
-import PoseOverlay
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -19,14 +14,15 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -38,236 +34,267 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 import java.util.concurrent.ExecutorService
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
+import java.util.concurrent.Executors
+import android.graphics.Bitmap
+import android.util.Size
 
 class ExerciseValidationActivity : ComponentActivity() {
+
     private var hasCameraPermission by mutableStateOf(false)
+    private lateinit var cameraExecutor: ExecutorService
+    private var poseResults by mutableStateOf<PoseLandmarkerResult?>(null)
+    private var imageWidth by mutableStateOf(640)
+    private var imageHeight by mutableStateOf(480)
 
-    private val requestPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted: Boolean ->
-            hasCameraPermission = isGranted
-        }
-
-    private lateinit var backgroundExecutor: ExecutorService
-
-    private var poseLandmarker: PoseLandmarker? = null
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> hasCameraPermission = granted }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        checkAndRequestCameraPermission()
-
-        backgroundExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+        cameraExecutor = Executors.newSingleThreadExecutor()
+        checkCameraPermission()
 
         setContent {
             PhysioTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    if (hasCameraPermission) {
-                        Log.d(
-                            "ExerciseValidationActivity",
-                            "Camera permission granted, showing PoseEstimationScreen."
-                        )
-                        PoseEstimationScreen(
-                            executor = backgroundExecutor,
-                            onLandmarkerInitialized = { landmarker ->
-                                this.poseLandmarker = landmarker
-                            }
-                        )
-                    } else {
-                        LaunchedEffect(Unit) {
-                            Log.d(
-                                "ExerciseValidationActivity",
-                                "Camera permission not granted, requesting."
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    if (hasCameraPermission)
+                        SimpleCameraScreen()
+                    else {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Text(
+                                text = "Needs camera permission to continue.",
+                                modifier = Modifier.align(Alignment.Center)
                             )
-                            checkAndRequestCameraPermission()
                         }
-                        Log.d("ExerciseValidationActivity", "Waiting for camera permission...")
+                        LaunchedEffect(Unit) { checkCameraPermission() }
                     }
                 }
             }
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        if (::backgroundExecutor.isInitialized) {
-            backgroundExecutor.shutdown()
-        }
-
-        poseLandmarker?.close()
-        Log.d("ExerciseValidationActivity", "Activity destroyed, PoseLandmarker closed.")
-    }
-
-    private fun checkAndRequestCameraPermission() {
-        when (PackageManager.PERMISSION_GRANTED) {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) -> {
-                hasCameraPermission = true
-            }
-
-            else -> {
-                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
-            }
-        }
-    }
-
     @Composable
-    fun PoseEstimationScreen(
-        executor: ExecutorService,
-        onLandmarkerInitialized: (PoseLandmarker?) -> Unit
-    ) {
-        Log.d("PoseEstimationScreen", "PoseEstimationScreen Composable called/recomposed.")
-
+    private fun SimpleCameraScreen(){
         val context = LocalContext.current
-        val lifecycleOwner = LocalLifecycleOwner.current
+        var lifecycleOwner = LocalLifecycleOwner.current
 
-        val lensFacing = CameraSelector.LENS_FACING_BACK
-
-        var poseResults by remember { mutableStateOf<PoseLandmarkerResult?>(null) }
-        var inputImageWidth by remember { mutableStateOf(1) }
-        var inputImageHeight by remember { mutableStateOf(1) }
-
-        LaunchedEffect(Unit) {
-            Log.d("PoseEstimationScreen", "LaunchedEffect for Landmarker setup.")
-            val landmarker = setupPoseLandmarker(
-                context = context,
-                runningMode = RunningMode.LIVE_STREAM,
-                executor = executor,
-                resultListener = { result, width, height ->
-                    poseResults = result
-                    inputImageWidth = width
-                    inputImageHeight = height
-                },
-                errorListener = { error ->
-                    Log.e("PoseEstimationScreen", "MediaPipe Landmarker Error: ${error?.message}")
-                }
-            )
-            onLandmarkerInitialized(landmarker)
-            Log.d("PoseEstimationScreen", "Landmarker initialization complete.")
-        }
+        var poseLandmarker by remember { mutableStateOf<PoseLandmarker?>(null) }
 
         val previewView = remember { PreviewView(context) }
-        val cameraSelector = remember(lensFacing) {
-            CameraSelector.Builder().requireLensFacing(lensFacing).build()
+
+        LaunchedEffect(Unit) {
+            poseLandmarker = createPoseLandmarker()
         }
 
-        LaunchedEffect(lensFacing, poseLandmarker, hasCameraPermission) {
-            val landmarkerInstance = poseLandmarker
-
-            if (landmarkerInstance == null || !hasCameraPermission) {
-                Log.d(
-                    "PoseEstimationScreen",
-                    "LaunchedEffect for CameraX binding: Waiting for Landmarker or Permission."
-                )
-                return@LaunchedEffect
-            }
-            Log.d(
-                "PoseEstimationScreen",
-                "LaunchedEffect for CameraX binding: Landmarker ready and Camera Permission granted, binding CameraX."
-            )
-
-            val cameraProvider = context.getCameraProvider()
-            cameraProvider.unbindAll()
-
-            val preview = Preview.Builder()
-                .setTargetAspectRatio(AspectRatio.RATIO_DEFAULT)
-                .build()
-                .also { it.surfaceProvider = previewView.surfaceProvider }
-
-            val imageAnalyzer = ImageAnalysis.Builder()
-                .setTargetAspectRatio(AspectRatio.RATIO_DEFAULT)
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
-                .build()
-                .also {
-                    it.setAnalyzer(executor,
-                        PoseAnalyzer(
-                            poseLandmarker = landmarkerInstance,
-                            onImageProxyClosed = { imageProxy -> imageProxy.close() }
-                        )
-                    )
-                }
-
-            try {
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner, cameraSelector, preview, imageAnalyzer
-                )
-                Log.d("PoseEstimationScreen", "CameraX bound successfully.")
-            } catch (exc: Exception) {
-                Log.e("PoseEstimationScreen", "CameraX binding failed", exc)
-            }
+        LaunchedEffect(poseLandmarker) {
+            val landmarker = poseLandmarker ?: return@LaunchedEffect
+            setupCamera(context, lifecycleOwner, previewView, landmarker)
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+            AndroidView(
+                factory = { previewView },
+                modifier = Modifier.fillMaxSize()
+            )
 
-            Log.d("PoseEstimationScreen", "Calling PoseOverlay Composable.")
-
-            PoseOverlay(
+            SimplePoseOverlay(
                 poseResult = poseResults,
-                imageWidth = inputImageWidth,
-                imageHeight = inputImageHeight,
-                isFrontCamera = lensFacing == CameraSelector.LENS_FACING_FRONT,
+                imageWidth = imageWidth,
+                imageHeight = imageHeight,
+                isFrontCamera = false,
                 modifier = Modifier.fillMaxSize()
             )
         }
     }
 
-    private fun setupPoseLandmarker(
-        context: Context,
-        runningMode: RunningMode,
-        executor: ExecutorService,
-        modelName: String = "pose_landmarker_full.task",
-        numPoses: Int = 1,
-        minPoseDetectionConfidence: Float = 0.5f,
-        minPosePresenceConfidence: Float = 0.5f,
-        minTrackingConfidence: Float = 0.5f,
-        resultListener: (result: PoseLandmarkerResult, imageWidth: Int, imageHeight: Int) -> Unit,
-        errorListener: (error: Exception?) -> Unit
-    ): PoseLandmarker? {
-        val modelPath = modelName
-        Log.d("setupPoseLandmarker", "Attempting to load model: $modelPath")
-
-        try {
-            val baseOptionsBuilder = BaseOptions.builder().setModelAssetPath(modelPath)
-
-            val optionsBuilder = PoseLandmarker.PoseLandmarkerOptions.builder()
-                .setBaseOptions(baseOptionsBuilder.build())
-                .setRunningMode(runningMode)
-                .setNumPoses(numPoses)
-                .setMinPoseDetectionConfidence(minPoseDetectionConfidence)
-                .setMinPosePresenceConfidence(minPosePresenceConfidence)
-                .setMinTrackingConfidence(minTrackingConfidence)
+    private fun createPoseLandmarker(): PoseLandmarker? {
+        return try {
+            val options = PoseLandmarker.PoseLandmarkerOptions.builder()
+                .setBaseOptions(
+                    BaseOptions.builder()
+                        .setModelAssetPath("pose_landmarker_full.task")
+//                        .setDelegate(BaseOptions.Delegate.GPU)
+                        .build()
+                )
+                .setRunningMode(RunningMode.LIVE_STREAM)
+                .setNumPoses(1)
+                .setMinPoseDetectionConfidence(0.5f)
+                .setMinPosePresenceConfidence(0.5f)
+                .setMinTrackingConfidence(0.5f)
                 .setResultListener { result, inputImage ->
-                    resultListener(result, inputImage.width, inputImage.height)
+                    poseResults = result
+                    imageWidth = inputImage.width
+                    imageHeight = inputImage.height
                 }
                 .setErrorListener { error ->
-                    errorListener(error)
+                    Log.e("MediaPipe", "Error: ${error?.message}")
                 }
+                .build()
 
-            val options = optionsBuilder.build()
-            val landmarker = PoseLandmarker.createFromOptions(context, options)
-            Log.d("setupPoseLandmarker", "PoseLandmarker created successfully.")
-            return landmarker
+            PoseLandmarker.createFromOptions(this, options)
         } catch (e: Exception) {
-            Log.e("setupPoseLandmarker", "Failed to create PoseLandmarker", e)
-            errorListener(e)
-            return null
+            Log.e("MediaPipe", "Setup failed: ${e.message}")
+            null
         }
     }
 
-    private suspend fun Context.getCameraProvider(): ProcessCameraProvider =
-        suspendCoroutine { continuation ->
-            ProcessCameraProvider.getInstance(this).also { cameraProvider ->
-                cameraProvider.addListener({
-                    continuation.resume(cameraProvider.get())
-                }, ContextCompat.getMainExecutor(this))
+    private suspend fun setupCamera(
+        context: android.content.Context,
+        lifecycleOwner: androidx.lifecycle.LifecycleOwner,
+        previewView: PreviewView,
+        poseLandmarker: PoseLandmarker
+    ){
+        val cameraProvider = ProcessCameraProvider.getInstance(context).get()
+
+        try {
+            cameraProvider.unbindAll()
+
+            val preview = Preview.Builder().build()
+            preview.surfaceProvider = previewView.surfaceProvider
+
+            val imageAnalyzer = ImageAnalysis.Builder()
+                .setTargetResolution(Size(480, 360))
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                .build()
+
+            imageAnalyzer.setAnalyzer(cameraExecutor, SimpleAnalyzer(poseLandmarker))
+
+            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                cameraSelector,
+                preview,
+                imageAnalyzer
+            )
+
+            Log.d("Camera", "Setup complete, camera bound successfully.")
+
+        } catch (e: Exception) {
+            Log.e("CameraSetup", "Error setting up camera: ${e.message}")
+        }
+    }
+
+    private fun checkCameraPermission() {
+        when (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)) {
+            PackageManager.PERMISSION_GRANTED -> hasCameraPermission = true
+            else -> permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        cameraExecutor.shutdown()
+    }
+}
+
+class SimpleAnalyzer(
+    private val poseLandmarker: PoseLandmarker
+) : ImageAnalysis.Analyzer {
+
+    private var isProcessing = false
+    private var frameCount = 0L
+
+    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
+    override fun analyze(imageProxy: androidx.camera.core.ImageProxy) {
+        frameCount++
+
+        if (frameCount % 3 != 0L) {
+            imageProxy.close()
+            return
+        }
+
+        if (isProcessing) {
+            Log.d("SimpleAnalyzer", "Skipping frame $frameCount - still processing")
+            imageProxy.close()
+            return
+        }
+
+        isProcessing = true
+        val startTime = System.currentTimeMillis()
+
+        try {
+
+            val bitmap = imageProxy.toBitmap()
+
+            val finalBitmap = if (bitmap.config != Bitmap.Config.ARGB_8888) {
+                bitmap.copy(Bitmap.Config.ARGB_8888, false).also { bitmap.recycle() }
+            } else {
+                bitmap
+            }
+
+            val mpImage = com.google.mediapipe.framework.image.BitmapImageBuilder(finalBitmap).build()
+            val timestampMs = System.currentTimeMillis()
+
+            poseLandmarker.detectAsync(mpImage, timestampMs)
+
+            finalBitmap.recycle()
+
+            val processingTime = System.currentTimeMillis() - startTime
+            Log.d("SimpleAnalyzer", "Frame $frameCount processed in ${processingTime}ms")
+
+        } catch (e: Exception) {
+            Log.e("SimpleAnalyzer", "Error: ${e.message}")
+        } finally {
+            isProcessing = false
+            imageProxy.close()
+        }
+    }
+}
+
+@Composable
+fun SimplePoseOverlay(
+    poseResult: PoseLandmarkerResult?,
+    imageWidth: Int = 640,
+    imageHeight: Int = 480,
+    isFrontCamera: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    androidx.compose.foundation.Canvas(modifier = modifier) {
+        if (poseResult == null || poseResult.landmarks().isEmpty()) {
+            return@Canvas
+        }
+
+        Log.d("SimplePoseOverlay", "🎯 Canvas: ${size.width}x${size.height}, Image: ${imageWidth}x${imageHeight}")
+
+        poseResult.landmarks().forEachIndexed { poseIndex, landmarks ->
+
+            if (PoseLandmarker.POSE_LANDMARKS.isNotEmpty()) {
+                PoseLandmarker.POSE_LANDMARKS.forEach { connection ->
+                    val startIndex = connection.start()
+                    val endIndex = connection.end()
+
+                    if (startIndex < landmarks.size && endIndex < landmarks.size) {
+                        val startLandmark = landmarks[startIndex]
+                        val endLandmark = landmarks[endIndex]
+
+                        //Rotate and scale the coordinates
+                        val startX = (1.0f - startLandmark.y()) * size.width
+                        val startY = startLandmark.x() * size.height
+                        val endX = (1.0f - endLandmark.y()) * size.width
+                        val endY = endLandmark.x() * size.height
+
+                        val finalStartX = if (isFrontCamera) size.width - startX else startX
+                        val finalEndX = if (isFrontCamera) size.width - endX else endX
+
+                        drawLine(
+                            color = androidx.compose.ui.graphics.Color.Green,
+                            start = androidx.compose.ui.geometry.Offset(finalStartX, startY),
+                            end = androidx.compose.ui.geometry.Offset(finalEndX, endY),
+                            strokeWidth = 6f,
+                            cap = androidx.compose.ui.graphics.StrokeCap.Round
+                        )
+
+                        if (startIndex in listOf(0, 11, 12, 15, 16)) {
+                            Log.d("SimplePoseOverlay", "Point $startIndex: MP(${startLandmark.x()}, ${startLandmark.y()}) -> Rotated($finalStartX, $startY)")
+                        }
+                    }
+                }
+            } else {
+                Log.w("SimplePoseOverlay", "POSE_LANDMARKS is empty!")
             }
         }
+    }
 }
