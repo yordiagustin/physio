@@ -102,10 +102,8 @@ class ExerciseValidationActivity : ComponentActivity() {
 
             SimplePoseOverlay(
                 poseResult = poseResults,
-                imageWidth = imageWidth,
-                imageHeight = imageHeight,
-                isFrontCamera = false,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                isFrontCamera = false
             )
         }
     }
@@ -249,10 +247,8 @@ class SimpleAnalyzer(
 @Composable
 fun SimplePoseOverlay(
     poseResult: PoseLandmarkerResult?,
-    imageWidth: Int = 640,
-    imageHeight: Int = 480,
-    isFrontCamera: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isFrontCamera: Boolean = false
 ) {
     androidx.compose.foundation.Canvas(modifier = modifier) {
         if (poseResult == null || poseResult.landmarks().isEmpty()) {
@@ -260,6 +256,20 @@ fun SimplePoseOverlay(
         }
 
         for (landmark in poseResult.landmarks()) {
+
+            landmark.forEachIndexed { index, normalizedLandmark ->
+                val x = normalizedLandmark.x() * size.width
+                val y = normalizedLandmark.y() * size.height
+
+                val finalX = if (isFrontCamera) size.width - x else x
+
+                drawCircle(
+                    color = androidx.compose.ui.graphics.Color.Red,
+                    radius = 12f,
+                    center = androidx.compose.ui.geometry.Offset(finalX, y)
+                )
+            }
+
             PoseLandmarker.POSE_LANDMARKS.forEach { connection ->
                 if (connection != null && connection.start() < landmark.size && connection.end() < landmark.size) {
                     val startLandmark = landmark[connection.start()]
@@ -277,7 +287,7 @@ fun SimplePoseOverlay(
                         color = androidx.compose.ui.graphics.Color.Green,
                         start = androidx.compose.ui.geometry.Offset(finalStartX, startY),
                         end = androidx.compose.ui.geometry.Offset(finalEndX, endY),
-                        strokeWidth = 8f,
+                        strokeWidth = 6f,
                         cap = androidx.compose.ui.graphics.StrokeCap.Round
                     )
                 }
