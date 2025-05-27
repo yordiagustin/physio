@@ -1,8 +1,10 @@
 package com.core.physio
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,8 +19,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
@@ -39,8 +43,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -49,6 +55,7 @@ import com.core.physio.ui.theme.PhysioTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             PhysioTheme {
@@ -66,10 +73,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WelcomeScreen() {
     var phoneNumber by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .background(Color.White),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -138,6 +147,9 @@ fun WelcomeScreen() {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 OutlinedTextField(
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.NumberPassword
+                    ),
                     value = phoneNumber,
                     onValueChange = { phoneNumber = it },
                     label = { Text("Ingresa tu número de teléfono") },
@@ -159,7 +171,8 @@ fun WelcomeScreen() {
 
                 Button(
                     onClick = {
-                        println("Click en Botón Flecha. Teléfono: $phoneNumber")
+                        val intent = Intent(context, ExerciseValidationActivity::class.java)
+                        context.startActivity(intent)
                     },
                     shape = CircleShape,
                     modifier = Modifier.size(60.dp),
