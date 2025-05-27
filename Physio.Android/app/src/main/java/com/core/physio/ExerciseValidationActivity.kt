@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import android.graphics.Bitmap
 import android.util.Size
+import com.google.mediapipe.tasks.core.Delegate
 
 class ExerciseValidationActivity : ComponentActivity() {
 
@@ -115,7 +116,7 @@ class ExerciseValidationActivity : ComponentActivity() {
                 .setBaseOptions(
                     BaseOptions.builder()
                         .setModelAssetPath("pose_landmarker_full.task")
-//                        .setDelegate(BaseOptions.Delegate.GPU)
+                        .setDelegate(Delegate.GPU)
                         .build()
                 )
                 .setRunningMode(RunningMode.LIVE_STREAM)
@@ -207,7 +208,6 @@ class SimpleAnalyzer(
         }
 
         if (isProcessing) {
-            Log.d("SimpleAnalyzer", "Skipping frame $frameCount - still processing")
             imageProxy.close()
             return
         }
@@ -216,27 +216,29 @@ class SimpleAnalyzer(
         val startTime = System.currentTimeMillis()
 
         try {
-
+            // Direct Conversion from YUV to RGB
             val bitmap = imageProxy.toBitmap()
 
-            val finalBitmap = if (bitmap.config != Bitmap.Config.ARGB_8888) {
-                bitmap.copy(Bitmap.Config.ARGB_8888, false).also { bitmap.recycle() }
-            } else {
-                bitmap
+            val matrix = android.graphics.Matrix().apply {
+                postRotate(imageProxy.imageInfo.rotationDegrees.toFloat())
             }
 
-            val mpImage = com.google.mediapipe.framework.image.BitmapImageBuilder(finalBitmap).build()
-            val timestampMs = System.currentTimeMillis()
+            val rotatedBitmap = Bitmap.createBitmap(
+                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+            )
 
-            poseLandmarker.detectAsync(mpImage, timestampMs)
+            val mpImage = com.google.mediapipe.framework.image.BitmapImageBuilder(rotatedBitmap).build()
+            poseLandmarker.detectAsync(mpImage, System.currentTimeMillis())
 
-            finalBitmap.recycle()
+            bitmap.recycle()
+            rotatedBitmap.recycle()
 
             val processingTime = System.currentTimeMillis() - startTime
             Log.d("SimpleAnalyzer", "Frame $frameCount processed in ${processingTime}ms")
 
         } catch (e: Exception) {
             Log.e("SimpleAnalyzer", "Error: ${e.message}")
+            e.printStackTrace()
         } finally {
             isProcessing = false
             imageProxy.close()
@@ -257,43 +259,28 @@ fun SimplePoseOverlay(
             return@Canvas
         }
 
-        Log.d("SimplePoseOverlay", "🎯 Canvas: ${size.width}x${size.height}, Image: ${imageWidth}x${imageHeight}")
+        for (landmark in poseResult.landmarks()) {
+            PoseLandmarker.POSE_LANDMARKS.forEach { connection ->
+                if (connection != null && connection.start() < landmark.size && connection.end() < landmark.size) {
+                    val startLandmark = landmark[connection.start()]
+                    val endLandmark = landmark[connection.end()]
 
-        poseResult.landmarks().forEachIndexed { poseIndex, landmarks ->
+                    val startX = startLandmark.x() * size.width
+                    val startY = startLandmark.y() * size.height
+                    val endX = endLandmark.x() * size.width
+                    val endY = endLandmark.y() * size.height
 
-            if (PoseLandmarker.POSE_LANDMARKS.isNotEmpty()) {
-                PoseLandmarker.POSE_LANDMARKS.forEach { connection ->
-                    val startIndex = connection.start()
-                    val endIndex = connection.end()
+                    val finalStartX = if (isFrontCamera) size.width - startX else startX
+                    val finalEndX = if (isFrontCamera) size.width - endX else endX
 
-                    if (startIndex < landmarks.size && endIndex < landmarks.size) {
-                        val startLandmark = landmarks[startIndex]
-                        val endLandmark = landmarks[endIndex]
-
-                        //Rotate and scale the coordinates
-                        val startX = (1.0f - startLandmark.y()) * size.width
-                        val startY = startLandmark.x() * size.height
-                        val endX = (1.0f - endLandmark.y()) * size.width
-                        val endY = endLandmark.x() * size.height
-
-                        val finalStartX = if (isFrontCamera) size.width - startX else startX
-                        val finalEndX = if (isFrontCamera) size.width - endX else endX
-
-                        drawLine(
-                            color = androidx.compose.ui.graphics.Color.Green,
-                            start = androidx.compose.ui.geometry.Offset(finalStartX, startY),
-                            end = androidx.compose.ui.geometry.Offset(finalEndX, endY),
-                            strokeWidth = 6f,
-                            cap = androidx.compose.ui.graphics.StrokeCap.Round
-                        )
-
-                        if (startIndex in listOf(0, 11, 12, 15, 16)) {
-                            Log.d("SimplePoseOverlay", "Point $startIndex: MP(${startLandmark.x()}, ${startLandmark.y()}) -> Rotated($finalStartX, $startY)")
-                        }
-                    }
+                    drawLine(
+                        color = androidx.compose.ui.graphics.Color.Green,
+                        start = androidx.compose.ui.geometry.Offset(finalStartX, startY),
+                        end = androidx.compose.ui.geometry.Offset(finalEndX, endY),
+                        strokeWidth = 8f,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
                 }
-            } else {
-                Log.w("SimplePoseOverlay", "POSE_LANDMARKS is empty!")
             }
         }
     }
