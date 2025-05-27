@@ -10,18 +10,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f8375c4f-3fc4-4419-9d6e-cd16832c99f8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/studiobot.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/core/physio/ExerciseValidationActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/core/physio/ExerciseValidationActivity.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/core/physio/PoseOverlay.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/core/physio/library/PoseOverlay.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/core/physio/library/PoseCameraProcessor.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/core/physio/library/PoseAnalyzer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/reports/problems/problems-report.html" beforeDir="false" afterPath="$PROJECT_DIR$/build/reports/problems/problems-report.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Physio/Physio.Api/appsettings.json" beforeDir="false" afterPath="$PROJECT_DIR$/../Physio/Physio.Api/appsettings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Physio/Physio.Migrator/appsettings.json" beforeDir="false" afterPath="$PROJECT_DIR$/../Physio/Physio.Migrator/appsettings.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -31,7 +21,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=C:\Users\yordi\.android\avd\Medium_Phone.avd)]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=LocalEmulator, isTemplate=false, identifier=path=/Users/yordiagustinparedes/.android/avd/Medium_Phone_API_36.avd)]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -73,7 +63,7 @@
     "cidr.known.project.marker": "true",
     "com.android.tools.idea.streaming.zoom.toolbar.visible": "false",
     "com.google.services.firebase.aqiPopupShown": "true",
-    "git-widget-placeholder": "feature/PHYSIO-5",
+    "git-widget-placeholder": "feature/PHYSIO-6",
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/yordi/Documents/GitHub/physio/Physio.Android",
