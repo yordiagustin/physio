@@ -11,18 +11,18 @@ public class ExercisesController(IConfiguration configuration) : ControllerBase
                                                 throw new ArgumentNullException($"Connection String is required");
 
     [HttpGet]
-    public async Task<IActionResult> GetAssignedByPatient([FromQuery] string patientId)
+    public async Task<IActionResult> GetAssignedByPatient([FromQuery] Guid patientId)
     {
         try
         {
             await using var connection = new Npgsql.NpgsqlConnection(_connectionString);
             const string query = """
                                  SELECT
-                                     e.id as exercise_id,
-                                     e.name as exercise_name,
-                                     e.estimated_duration_minutes,
-                                     e.difficulty_level,
-                                     e.instructions
+                                     e.id as ExerciseId,
+                                     e.name as ExerciseName,
+                                     e.estimated_duration_minutes as EstimatedDurationMinutes,
+                                     e.difficulty_level as DifficultyLevel,
+                                     e.instructions as Instructions
                                  FROM patient_exercise_assignments pea
                                  JOIN exercises e ON pea.exercise_id = e.id
                                  WHERE pea.patient_id = @PatientId
@@ -41,11 +41,24 @@ public class ExercisesController(IConfiguration configuration) : ControllerBase
             throw new Exception("Database operation failed.", ex);
         }
     }
-
+    
     public record ExercisesAssignedByPatient(
         int ExerciseId,
         string ExerciseName,
-        int? EstimatedDurationMinutes,
+        int EstimatedDurationMinutes,
         int DifficultyLevel,
-        string? Instructions);
+        string Instructions);
+
+    // public class ExercisesAssignedByPatient
+    // {
+    //     public ExercisesAssignedByPatient()
+    //     {
+    //     }
+    //
+    //     public int ExerciseId { get; set; }
+    //     public string ExerciseName { get; set; }
+    //     public int EstimatedDurationMinutes { get; set; }
+    //     public int DifficultyLevel { get; set; }
+    //     public string Instructions { get; set; }
+    // }
 }
