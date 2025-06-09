@@ -20,6 +20,7 @@ public class ExercisesController(IConfiguration configuration) : ControllerBase
                                  SELECT
                                      e.id as ExerciseId,
                                      e.name as ExerciseName,
+                                     e.description as Description,
                                      e.estimated_duration_minutes as EstimatedDurationMinutes,
                                      e.difficulty_level as DifficultyLevel,
                                      e.instructions as Instructions
@@ -45,20 +46,8 @@ public class ExercisesController(IConfiguration configuration) : ControllerBase
     public record ExercisesAssignedByPatient(
         int ExerciseId,
         string ExerciseName,
+        string Description,
         int EstimatedDurationMinutes,
         int DifficultyLevel,
         string Instructions);
-
-    // public class ExercisesAssignedByPatient
-    // {
-    //     public ExercisesAssignedByPatient()
-    //     {
-    //     }
-    //
-    //     public int ExerciseId { get; set; }
-    //     public string ExerciseName { get; set; }
-    //     public int EstimatedDurationMinutes { get; set; }
-    //     public int DifficultyLevel { get; set; }
-    //     public string Instructions { get; set; }
-    // }
 }
