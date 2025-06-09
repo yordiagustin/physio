@@ -23,7 +23,8 @@ public class ExercisesController(IConfiguration configuration) : ControllerBase
                                      e.description as Description,
                                      e.estimated_duration_minutes as EstimatedDurationMinutes,
                                      e.difficulty_level as DifficultyLevel,
-                                     e.instructions as Instructions
+                                     e.instructions as Instructions,
+                                     pea.target_reps_per_session as Repetitions
                                  FROM patient_exercise_assignments pea
                                  JOIN exercises e ON pea.exercise_id = e.id
                                  WHERE pea.patient_id = @PatientId
@@ -49,5 +50,6 @@ public class ExercisesController(IConfiguration configuration) : ControllerBase
         string Description,
         int EstimatedDurationMinutes,
         int DifficultyLevel,
-        string Instructions);
+        string Instructions,
+        int Repetitions);
 }
