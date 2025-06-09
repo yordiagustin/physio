@@ -1,12 +1,12 @@
 -- =========================================================
--- ESQUEMA RELACIONAL COMPLETO - SIN JSON
--- Sistema de Ejercicios de Fisioterapia Normalizado
+-- RELATIONAL SCHEMA
+-- Exercise System for Physiotherapy
 -- =========================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- =========================================================
--- TABLA DE PACIENTES
+-- PATIENTS TABLE
 -- =========================================================
 
 CREATE TABLE patient
@@ -19,7 +19,7 @@ CREATE TABLE patient
 );
 
 -- =========================================================
--- TABLAS DE EJERCICIOS
+-- EXERCISES TABLE
 -- =========================================================
 
 CREATE TABLE exercises (
@@ -88,7 +88,6 @@ CREATE TABLE error_types (
     UNIQUE(exercise_id, error_code)
 );
 
--- TABLA NORMALIZADA: validation_rules (SIN JSON)
 CREATE TABLE validation_rules (
     id SERIAL PRIMARY KEY,
     exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
@@ -101,7 +100,6 @@ CREATE TABLE validation_rules (
     FOREIGN KEY (exercise_id, error_code) REFERENCES error_types(exercise_id, error_code)
 );
 
--- NUEVA TABLA: Fases aplicables por regla (reemplaza applicable_phases JSON)
 CREATE TABLE rule_applicable_phases (
     id SERIAL PRIMARY KEY,
     rule_id INTEGER NOT NULL REFERENCES validation_rules(id) ON DELETE CASCADE,
@@ -111,7 +109,6 @@ CREATE TABLE rule_applicable_phases (
     UNIQUE(rule_id, phase_name)
 );
 
--- NUEVA TABLA: Parámetros por regla (reemplaza parameters JSON)
 CREATE TABLE rule_parameters (
     id SERIAL PRIMARY KEY,
     rule_id INTEGER NOT NULL REFERENCES validation_rules(id) ON DELETE CASCADE,
@@ -122,7 +119,6 @@ CREATE TABLE rule_parameters (
     UNIQUE(rule_id, parameter_key)
 );
 
--- TABLA NORMALIZADA: landmark_mappings (SIN JSON)
 CREATE TABLE landmark_mappings (
     id SERIAL PRIMARY KEY,
     exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
@@ -134,7 +130,6 @@ CREATE TABLE landmark_mappings (
     UNIQUE(exercise_id, mapping_type, joint_name)
 );
 
--- NUEVA TABLA: Índices de landmarks (reemplaza landmark_indices JSON)
 CREATE TABLE landmark_indices (
     id SERIAL PRIMARY KEY,
     mapping_id INTEGER NOT NULL REFERENCES landmark_mappings(id) ON DELETE CASCADE,
@@ -146,7 +141,7 @@ CREATE TABLE landmark_indices (
 );
 
 -- =========================================================
--- TABLAS DE SESIONES Y REPETICIONES
+-- EXERCISE SESSIONS AND REPETITIONS TABLES
 -- =========================================================
 
 CREATE TABLE exercise_sessions (
@@ -164,7 +159,6 @@ CREATE TABLE exercise_sessions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- TABLA NORMALIZADA: exercise_repetitions (SIN JSON)
 CREATE TABLE exercise_repetitions (
     id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL REFERENCES exercise_sessions(id) ON DELETE CASCADE,
@@ -182,7 +176,6 @@ CREATE TABLE exercise_repetitions (
     UNIQUE(session_id, rep_number)
 );
 
--- NUEVA TABLA: Errores detectados por repetición (reemplaza errors_detected JSON)
 CREATE TABLE repetition_errors (
     id SERIAL PRIMARY KEY,
     repetition_id INTEGER NOT NULL REFERENCES exercise_repetitions(id) ON DELETE CASCADE,
@@ -193,7 +186,7 @@ CREATE TABLE repetition_errors (
 );
 
 -- =========================================================
--- TABLA DE ASIGNACIONES
+-- ASSIGNMENTS TABLE
 -- =========================================================
 
 CREATE TABLE patient_exercise_assignments (
@@ -211,37 +204,37 @@ CREATE TABLE patient_exercise_assignments (
 );
 
 -- =========================================================
--- ÍNDICES PARA OPTIMIZACIÓN
+-- INDEXES FOR OPTIMIZATION
 -- =========================================================
 
--- Índices para pacientes
+-- Patient indexes
 CREATE INDEX idx_patient_phone_number ON patient(phone_number);
 
--- Índices para sesiones
+-- Exercise sessions indexes
 CREATE INDEX idx_exercise_sessions_patient ON exercise_sessions(patient_id);
 CREATE INDEX idx_exercise_sessions_patient_exercise ON exercise_sessions(patient_id, exercise_id);
 CREATE INDEX idx_exercise_sessions_uuid ON exercise_sessions(session_uuid);
 
--- Índices para repeticiones
+-- Exercise repetitions indexes
 CREATE INDEX idx_exercise_repetitions_session ON exercise_repetitions(session_id);
 CREATE INDEX idx_exercise_repetitions_session_rep ON exercise_repetitions(session_id, rep_number);
 CREATE INDEX idx_exercise_repetitions_time ON exercise_repetitions(effective_time_ms);
 CREATE INDEX idx_exercise_repetitions_range ON exercise_repetitions(range_of_motion_degrees);
 
--- Índices para errores de repetición
+-- Repetition errors indexes
 CREATE INDEX idx_repetition_errors_repetition ON repetition_errors(repetition_id);
 CREATE INDEX idx_repetition_errors_code ON repetition_errors(error_code);
 
--- Índices para asignaciones
+-- Patient assignments indexes
 CREATE INDEX idx_patient_assignments_patient ON patient_exercise_assignments(patient_id);
 CREATE INDEX idx_patient_assignments_active ON patient_exercise_assignments(patient_id, is_active);
 
--- Índices para ejercicios
+-- Exercises indexes
 CREATE INDEX idx_exercises_condition ON exercises(target_condition);
 CREATE INDEX idx_exercise_phases_exercise_order ON exercise_phases(exercise_id, phase_order);
 CREATE INDEX idx_validation_rules_exercise_active ON validation_rules(exercise_id, is_active);
 
--- Índices para las nuevas tablas relacionales
+-- New relational tables indexes
 CREATE INDEX idx_rule_applicable_phases_rule ON rule_applicable_phases(rule_id);
 CREATE INDEX idx_rule_parameters_rule ON rule_parameters(rule_id);
 CREATE INDEX idx_landmark_indices_mapping ON landmark_indices(mapping_id);

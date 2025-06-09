@@ -28,42 +28,25 @@ public class DatabaseService(IConfiguration configuration)
             await connection.QueryFirstOrDefaultAsync<Patient>(query, new { PhoneNumber = phoneNumber }));
     }
 
-    public async Task<IEnumerable<Exercise>?> GetRoutineExercisesByDateAsync(DateTime date, Guid phaseId)
+    public async Task<IEnumerable<Exercise>> GetExerciseByPatient(string patientId)
     {
         const string query = """
-                             SELECT e.id, 
-                                    e.name, 
-                                    e.description, 
-                                    e.estimated_duration as EstimatedDuration,
-                                    e.repetitions,
-                                    e.difficulty 
-                             FROM routine r 
-                             JOIN exercise e on e.id = r.exercise_id
-                             WHERE execution_date = @Date
-                             AND phase_id = @PhaseId
-                             ORDER BY order_number;
+                             SELECT
+                                 e.id as exercise_id,
+                                 e.name as exercise_name,
+                                 e.estimated_duration_minutes,
+                                 e.difficulty_level,
+                                 e.instructions
+                             FROM patient_exercise_assignments pea
+                             JOIN exercises e ON pea.exercise_id = e.id
+                             WHERE pea.patient_id = @PatientId
+                               AND pea.is_active = true
+                               AND e.is_active = true
+                             ORDER BY pea.assigned_date DESC;
                              """;
-
+        
         return await ExecuteAsync(async connection =>
-            await connection.QueryAsync<Exercise>(query, new { Date = date, PhaseId = phaseId }));
-    }
-
-    public async Task<Exercise?> GetExerciseById(Guid id)
-    {
-        const string query = """
-                             SELECT id, 
-                                    name, 
-                                    description, 
-                                    repetitions, 
-                                    difficulty, 
-                                    estimated_duration as EstimatedDuration, 
-                                    instructions 
-                             FROM exercise
-                             WHERE id = @Id;
-                             """;
-
-        return await ExecuteAsync(async connection =>
-            await connection.QueryFirstOrDefaultAsync<Exercise>(query, new { Id = id }));
+            await connection.QueryAsync<Exercise>(query, new { PatientId = patientId }));
     }
 
     private async Task<T> ExecuteAsync<T>(Func<IDbConnection, Task<T>> operation)
