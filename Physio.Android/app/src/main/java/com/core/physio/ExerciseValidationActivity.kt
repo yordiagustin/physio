@@ -48,8 +48,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.core.physio.library.DynamicExerciseValidator
 import com.core.physio.library.ExerciseData
-import com.core.physio.library.TrunkFlexionValidator
 import com.google.mediapipe.tasks.core.Delegate
 
 class ExerciseValidationActivity : ComponentActivity() {
@@ -58,8 +58,9 @@ class ExerciseValidationActivity : ComponentActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private var poseResults by mutableStateOf<PoseLandmarkerResult?>(null)
 
-    private val exerciseValidator = TrunkFlexionValidator()
+    private var exerciseValidator: DynamicExerciseValidator? = null
     private var exerciseData by mutableStateOf(ExerciseData())
+    private var targetReps: Int = 10
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -69,6 +70,28 @@ class ExerciseValidationActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        val exerciseRulesJson = intent.getStringExtra("exerciseRulesJson")
+        targetReps = intent.getIntExtra("targetReps", 10)
+
+        if (exerciseRulesJson != null) {
+            try {
+                exerciseValidator = DynamicExerciseValidator.fromJson(exerciseRulesJson, targetReps)
+                exerciseValidator?.reset()
+                Log.d("ExerciseValidation", "Dynamic Validator started successfully")
+                Log.d("ExerciseValidation", "Exercise: ${exerciseValidator?.getExerciseInfo()?.exercise_name}")
+                Log.d("ExerciseValidation", "Repetitions: $targetReps")
+            } catch (e: Exception) {
+                Log.e("ExerciseValidation", "Error initializing validator: ${e.message}")
+                finish()
+                return
+            }
+        } else {
+            Log.e("ExerciseValidation", "Don't have exercise rules JSON")
+            finish()
+            return
+        }
+
         checkCameraPermission()
 
         setContent {
@@ -122,7 +145,7 @@ class ExerciseValidationActivity : ComponentActivity() {
 
             ExerciseUI(
                 exerciseData = exerciseData,
-                onReset = { exerciseValidator.reset() },
+                onReset = { exerciseValidator?.reset() },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -146,7 +169,16 @@ class ExerciseValidationActivity : ComponentActivity() {
                     poseResults = result
 
                     if (result.landmarks().isNotEmpty()) {
-                        exerciseData = exerciseValidator.validatePose(result.landmarks()[0])
+                        exerciseValidator?.let { validator ->
+                            exerciseData = validator.validatePose(result.landmarks()[0])
+
+                            // Verificar si la sesión se completó
+                            if (exerciseData.isSessionComplete) {
+                                Log.d("ExerciseValidation", "¡Sesión completada!")
+                                // Opcional: Auto-finish después de un delay
+                                // Handler(Looper.getMainLooper()).postDelayed({ finishSession() }, 3000)
+                            }
+                        }
                     }
                 }
                 .setErrorListener { error ->
@@ -196,6 +228,17 @@ class ExerciseValidationActivity : ComponentActivity() {
         } catch (e: Exception) {
             Log.e("CameraSetup", "Error setting up camera: ${e.message}")
         }
+    }
+
+    private fun finishSession() {
+        // TODO: Navegar a pantalla de resultados con métricas
+        // val sessionMetrics = exerciseValidator?.getSessionMetrics()
+        // val intent = Intent(this, SessionResultsActivity::class.java)
+        // intent.putExtra("sessionMetrics", sessionMetrics)
+        // startActivity(intent)
+
+        Log.d("ExerciseValidation", "Finalizando sesión...")
+        finish()
     }
 
     private fun checkCameraPermission() {
