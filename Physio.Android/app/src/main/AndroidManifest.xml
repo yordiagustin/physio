@@ -41,6 +41,10 @@
             android:name=".ExerciseValidationActivity"
             android:exported="true">
         </activity>
+        <activity
+            android:name=".ExerciseResultsActivity"
+            android:exported="true">
+        </activity>
     </application>
 
 </manifest>
