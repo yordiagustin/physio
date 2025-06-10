@@ -28,27 +28,6 @@ public class DatabaseService(IConfiguration configuration)
             await connection.QueryFirstOrDefaultAsync<Patient>(query, new { PhoneNumber = phoneNumber }));
     }
 
-    public async Task<IEnumerable<Exercise>> GetExerciseByPatient(string patientId)
-    {
-        const string query = """
-                             SELECT
-                                 e.id as exercise_id,
-                                 e.name as exercise_name,
-                                 e.estimated_duration_minutes,
-                                 e.difficulty_level,
-                                 e.instructions
-                             FROM patient_exercise_assignments pea
-                             JOIN exercises e ON pea.exercise_id = e.id
-                             WHERE pea.patient_id = @PatientId
-                               AND pea.is_active = true
-                               AND e.is_active = true
-                             ORDER BY pea.assigned_date DESC;
-                             """;
-        
-        return await ExecuteAsync(async connection =>
-            await connection.QueryAsync<Exercise>(query, new { PatientId = patientId }));
-    }
-
     private async Task<T> ExecuteAsync<T>(Func<IDbConnection, Task<T>> operation)
     {
         try
