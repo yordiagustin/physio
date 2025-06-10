@@ -2,6 +2,9 @@ package com.core.physio.data.repository
 import com.core.physio.data.api.ExerciseApi
 import com.core.physio.data.api.ExerciseRulesApi
 import com.core.physio.data.model.Exercise
+import com.core.physio.data.model.SessionApiResponse
+import com.core.physio.data.model.SessionResultsRequest
+import com.core.physio.data.model.SessionResultsResponse
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -26,6 +29,14 @@ class ExerciseRepository {
 
     suspend fun getExercises(patientId: String): List<Exercise> {
         return api.getExercises(patientId)
+    }
+
+    suspend fun saveSessionResults(request: SessionResultsRequest): Response<SessionApiResponse> {
+        return api.saveSessionResults(request)
+    }
+
+    suspend fun getSessionResults(sessionId: String): Response<SessionResultsResponse> {
+        return api.getSessionResults(sessionId)
     }
 
     suspend fun getExerciseRules(exerciseId: String): Response<String> {

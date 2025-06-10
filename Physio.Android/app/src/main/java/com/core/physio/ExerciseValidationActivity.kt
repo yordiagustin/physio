@@ -1,6 +1,7 @@
 package com.core.physio
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
@@ -48,9 +49,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
+import com.core.physio.data.model.toApiRequest
+import com.core.physio.data.repository.ExerciseRepository
 import com.core.physio.library.DynamicExerciseValidator
 import com.core.physio.library.ExerciseData
 import com.google.mediapipe.tasks.core.Delegate
+import kotlinx.coroutines.launch
 
 class ExerciseValidationActivity : ComponentActivity() {
 
@@ -58,9 +63,15 @@ class ExerciseValidationActivity : ComponentActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private var poseResults by mutableStateOf<PoseLandmarkerResult?>(null)
 
+    private var isAlreadyFinished = false
+    private var sessionCreatedUuid: String? = null
+
     private var exerciseValidator: DynamicExerciseValidator? = null
     private var exerciseData by mutableStateOf(ExerciseData())
     private var targetReps: Int = 10
+    private var patientId: String = ""
+
+    private val exerciseRepository = ExerciseRepository()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -72,14 +83,16 @@ class ExerciseValidationActivity : ComponentActivity() {
         cameraExecutor = Executors.newSingleThreadExecutor()
 
         val exerciseRulesJson = intent.getStringExtra("exerciseRulesJson")
+        patientId = intent.getStringExtra("patientId") ?: "42f0ffab-ce7e-45d2-ace8-fbb83e241d0c"
         targetReps = intent.getIntExtra("targetReps", 10)
 
         if (exerciseRulesJson != null) {
             try {
-                exerciseValidator = DynamicExerciseValidator.fromJson(exerciseRulesJson, targetReps)
+                exerciseValidator = DynamicExerciseValidator.fromJson(exerciseRulesJson, targetReps, patientId)
                 exerciseValidator?.reset()
                 Log.d("ExerciseValidation", "Dynamic Validator started successfully")
                 Log.d("ExerciseValidation", "Exercise: ${exerciseValidator?.getExerciseInfo()?.exercise_name}")
+                Log.d("ExerciseValidation", "Patient ID: $patientId")
                 Log.d("ExerciseValidation", "Repetitions: $targetReps")
             } catch (e: Exception) {
                 Log.e("ExerciseValidation", "Error initializing validator: ${e.message}")
@@ -145,7 +158,11 @@ class ExerciseValidationActivity : ComponentActivity() {
 
             ExerciseUI(
                 exerciseData = exerciseData,
-                onReset = { exerciseValidator?.reset() },
+                targetReps = targetReps,
+                onReset = {
+                    exerciseValidator?.reset()
+                    exerciseData = ExerciseData()
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -172,11 +189,9 @@ class ExerciseValidationActivity : ComponentActivity() {
                         exerciseValidator?.let { validator ->
                             exerciseData = validator.validatePose(result.landmarks()[0])
 
-                            // Verificar si la sesión se completó
-                            if (exerciseData.isSessionComplete) {
-                                Log.d("ExerciseValidation", "¡Sesión completada!")
-                                // Opcional: Auto-finish después de un delay
-                                // Handler(Looper.getMainLooper()).postDelayed({ finishSession() }, 3000)
+                            if (exerciseData.isSessionComplete && !isAlreadyFinished) {
+                                Log.d("ExerciseValidation", "Session completed. Finishing...")
+                                finishSession()
                             }
                         }
                     }
@@ -231,13 +246,50 @@ class ExerciseValidationActivity : ComponentActivity() {
     }
 
     private fun finishSession() {
-        // TODO: Navegar a pantalla de resultados con métricas
-        // val sessionMetrics = exerciseValidator?.getSessionMetrics()
-        // val intent = Intent(this, SessionResultsActivity::class.java)
-        // intent.putExtra("sessionMetrics", sessionMetrics)
-        // startActivity(intent)
+        exerciseValidator?.let { validator ->
+            lifecycleScope.launch {
+                try {
+                    val sessionMetrics = validator.getSessionMetrics()
 
-        Log.d("ExerciseValidation", "Finalizando sesión...")
+                    Log.d("ExerciseValidation", "Sending session to API...")
+                    Log.d("ExerciseValidation", "Patient ID: $patientId")
+                    Log.d("ExerciseValidation", "Total reps: ${sessionMetrics.totalReps}")
+                    Log.d("ExerciseValidation", "Successful reps: ${sessionMetrics.successfulReps}")
+                    Log.d("ExerciseValidation", "Session score: ${sessionMetrics.sessionScore}")
+
+                    val apiRequest = sessionMetrics.toApiRequest(
+                        patientId = patientId,
+                        notes = "Session Completed Successfully"
+                    )
+
+                    val response = exerciseRepository.saveSessionResults(apiRequest)
+
+                    if (response.isSuccessful) {
+                        val result = response.body()
+                        sessionCreatedUuid = result?.sessionUuid ?: "No UUID returned"
+                        Log.d("ExerciseValidation", "Session saved successfully: ${result?.sessionId}")
+                    } else {
+                        Log.e("ExerciseValidation", "Error saving session: ${response.code()}")
+                        Log.e("ExerciseValidation", "Response body: ${response.errorBody()?.string()}")
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("ExerciseValidation", "Connection Error: ${e.message}")
+                } finally {
+                    navigateToResults()
+                }
+            }
+        } ?: run {
+            navigateToResults()
+        }
+    }
+
+    private fun navigateToResults() {
+        val intent = Intent(this, ExerciseResultsActivity::class.java).apply {
+            putExtra("sessionId", sessionCreatedUuid)
+        }
+        startActivity(intent)
+        isAlreadyFinished = true;
         finish()
     }
 
@@ -364,6 +416,7 @@ fun SimplePoseOverlay(
 @Composable
 fun ExerciseUI(
     exerciseData: ExerciseData,
+    targetReps: Int,
     onReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -376,7 +429,7 @@ fun ExerciseUI(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             CounterCard(
-                value = "${exerciseData.repCount}/20",
+                value = "${exerciseData.repCount}/$targetReps",
                 backgroundColor = Color.Black.copy(alpha = 0.7f),
                 textColor = Color.White
             )
@@ -388,11 +441,17 @@ fun ExerciseUI(
                 backgroundColor = Color.White.copy(alpha = 0.9f),
                 textColor = Color.Black
             )
+
+            CounterCard(
+                value = "${(exerciseData.sessionProgress * 100).toInt()}%",
+                backgroundColor = Color.Green.copy(alpha = 0.7f),
+                textColor = Color.White
+            )
         }
 
         FeedbackCard(
             message = exerciseData.currentMessage,
-            isError = exerciseData.errorCount > 0,
+            isError = exerciseData.detectedErrors.isNotEmpty(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(16.dp)
@@ -405,7 +464,7 @@ fun ExerciseUI(
                 .align(Alignment.TopEnd)
                 .padding(16.dp)
         ) {
-            Text("R")
+            Text("<")
         }
     }
 }
