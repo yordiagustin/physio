@@ -37,6 +37,19 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import android.graphics.Bitmap
 import android.util.Size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.core.physio.library.DynamicExerciseValidator
+import com.core.physio.library.ExerciseData
 import com.google.mediapipe.tasks.core.Delegate
 
 class ExerciseValidationActivity : ComponentActivity() {
@@ -44,8 +57,10 @@ class ExerciseValidationActivity : ComponentActivity() {
     private var hasCameraPermission by mutableStateOf(false)
     private lateinit var cameraExecutor: ExecutorService
     private var poseResults by mutableStateOf<PoseLandmarkerResult?>(null)
-    private var imageWidth by mutableStateOf(640)
-    private var imageHeight by mutableStateOf(480)
+
+    private var exerciseValidator: DynamicExerciseValidator? = null
+    private var exerciseData by mutableStateOf(ExerciseData())
+    private var targetReps: Int = 10
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -55,6 +70,28 @@ class ExerciseValidationActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        val exerciseRulesJson = intent.getStringExtra("exerciseRulesJson")
+        targetReps = intent.getIntExtra("targetReps", 10)
+
+        if (exerciseRulesJson != null) {
+            try {
+                exerciseValidator = DynamicExerciseValidator.fromJson(exerciseRulesJson, targetReps)
+                exerciseValidator?.reset()
+                Log.d("ExerciseValidation", "Dynamic Validator started successfully")
+                Log.d("ExerciseValidation", "Exercise: ${exerciseValidator?.getExerciseInfo()?.exercise_name}")
+                Log.d("ExerciseValidation", "Repetitions: $targetReps")
+            } catch (e: Exception) {
+                Log.e("ExerciseValidation", "Error initializing validator: ${e.message}")
+                finish()
+                return
+            }
+        } else {
+            Log.e("ExerciseValidation", "Don't have exercise rules JSON")
+            finish()
+            return
+        }
+
         checkCameraPermission()
 
         setContent {
@@ -105,6 +142,12 @@ class ExerciseValidationActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxSize(),
                 isFrontCamera = false
             )
+
+            ExerciseUI(
+                exerciseData = exerciseData,
+                onReset = { exerciseValidator?.reset() },
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 
@@ -113,7 +156,7 @@ class ExerciseValidationActivity : ComponentActivity() {
             val options = PoseLandmarker.PoseLandmarkerOptions.builder()
                 .setBaseOptions(
                     BaseOptions.builder()
-                        .setModelAssetPath("pose_landmarker_full.task")
+                        .setModelAssetPath("pose_landmarker_lite.task")
                         .setDelegate(Delegate.GPU)
                         .build()
                 )
@@ -124,8 +167,19 @@ class ExerciseValidationActivity : ComponentActivity() {
                 .setMinTrackingConfidence(0.5f)
                 .setResultListener { result, inputImage ->
                     poseResults = result
-                    imageWidth = inputImage.width
-                    imageHeight = inputImage.height
+
+                    if (result.landmarks().isNotEmpty()) {
+                        exerciseValidator?.let { validator ->
+                            exerciseData = validator.validatePose(result.landmarks()[0])
+
+                            // Verificar si la sesión se completó
+                            if (exerciseData.isSessionComplete) {
+                                Log.d("ExerciseValidation", "¡Sesión completada!")
+                                // Opcional: Auto-finish después de un delay
+                                // Handler(Looper.getMainLooper()).postDelayed({ finishSession() }, 3000)
+                            }
+                        }
+                    }
                 }
                 .setErrorListener { error ->
                     Log.e("MediaPipe", "Error: ${error?.message}")
@@ -139,7 +193,7 @@ class ExerciseValidationActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun setupCamera(
+    private fun setupCamera(
         context: android.content.Context,
         lifecycleOwner: androidx.lifecycle.LifecycleOwner,
         previewView: PreviewView,
@@ -174,6 +228,17 @@ class ExerciseValidationActivity : ComponentActivity() {
         } catch (e: Exception) {
             Log.e("CameraSetup", "Error setting up camera: ${e.message}")
         }
+    }
+
+    private fun finishSession() {
+        // TODO: Navegar a pantalla de resultados con métricas
+        // val sessionMetrics = exerciseValidator?.getSessionMetrics()
+        // val intent = Intent(this, SessionResultsActivity::class.java)
+        // intent.putExtra("sessionMetrics", sessionMetrics)
+        // startActivity(intent)
+
+        Log.d("ExerciseValidation", "Finalizando sesión...")
+        finish()
     }
 
     private fun checkCameraPermission() {
@@ -264,7 +329,7 @@ fun SimplePoseOverlay(
                 val finalX = if (isFrontCamera) size.width - x else x
 
                 drawCircle(
-                    color = androidx.compose.ui.graphics.Color.Red,
+                    color = androidx.compose.ui.graphics.Color.Black,
                     radius = 12f,
                     center = androidx.compose.ui.geometry.Offset(finalX, y)
                 )
@@ -284,7 +349,7 @@ fun SimplePoseOverlay(
                     val finalEndX = if (isFrontCamera) size.width - endX else endX
 
                     drawLine(
-                        color = androidx.compose.ui.graphics.Color.Green,
+                        color = androidx.compose.ui.graphics.Color.White,
                         start = androidx.compose.ui.geometry.Offset(finalStartX, startY),
                         end = androidx.compose.ui.geometry.Offset(finalEndX, endY),
                         strokeWidth = 6f,
@@ -293,5 +358,113 @@ fun SimplePoseOverlay(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ExerciseUI(
+    exerciseData: ExerciseData,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            CounterCard(
+                value = "${exerciseData.repCount}/20",
+                backgroundColor = Color.Black.copy(alpha = 0.7f),
+                textColor = Color.White
+            )
+
+            val minutes = (exerciseData.timeElapsed / 60000).toInt()
+            val seconds = ((exerciseData.timeElapsed % 60000) / 1000).toInt()
+            CounterCard(
+                value = "%02d:%02d".format(minutes, seconds),
+                backgroundColor = Color.White.copy(alpha = 0.9f),
+                textColor = Color.Black
+            )
+        }
+
+        FeedbackCard(
+            message = exerciseData.currentMessage,
+            isError = exerciseData.errorCount > 0,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+                .fillMaxWidth()
+        )
+
+        FloatingActionButton(
+            onClick = onReset,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Text("R")
+        }
+    }
+}
+
+@Composable
+fun CounterCard(
+    value: String,
+    backgroundColor: Color,
+    textColor: Color
+) {
+    Box(
+        modifier = Modifier
+            .background(
+                color = backgroundColor,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = value,
+            color = textColor,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+fun FeedbackCard(
+    message: String,
+    isError: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = if (isError) {
+        Color.Red.copy(alpha = 0.9f)
+    } else {
+        Color.Green.copy(alpha = 0.9f)
+    }
+
+    Row(
+        modifier = modifier
+            .background(
+                color = backgroundColor,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "",
+            fontSize = 24.sp
+        )
+        Text(
+            text = message,
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

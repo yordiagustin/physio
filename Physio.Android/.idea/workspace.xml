@@ -12,6 +12,11 @@
     <list default="true" id="f8375c4f-3fc4-4419-9d6e-cd16832c99f8" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/core/physio/ExerciseValidationActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/core/physio/ExerciseValidationActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/core/physio/library/TrunkFlexionValidator.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Physio.iOS/Physio.xcodeproj/project.pbxproj" beforeDir="false" afterPath="$PROJECT_DIR$/../Physio.iOS/Physio.xcodeproj/project.pbxproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Physio.iOS/Physio.xcodeproj/project.xcworkspace/xcuserdata/yordiagustinparedes.xcuserdatad/UserInterfaceState.xcuserstate" beforeDir="false" afterPath="$PROJECT_DIR$/../Physio.iOS/Physio.xcodeproj/project.xcworkspace/xcuserdata/yordiagustinparedes.xcuserdatad/UserInterfaceState.xcuserstate" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Physio.iOS/Physio/ContentView.swift" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Physio.iOS/Physio/Login.swift" beforeDir="false" afterPath="$PROJECT_DIR$/../Physio.iOS/Physio/Login.swift" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -63,14 +68,14 @@
     "cidr.known.project.marker": "true",
     "com.android.tools.idea.streaming.zoom.toolbar.visible": "false",
     "com.google.services.firebase.aqiPopupShown": "true",
-    "git-widget-placeholder": "feature/PHYSIO-6",
+    "git-widget-placeholder": "feature/PHYSIO-7",
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/yordi/Documents/GitHub/physio/Physio.Android",
     "project.structure.last.edited": "Modules",
     "project.structure.proportion": "0.17",
     "project.structure.side.proportion": "0.2",
-    "settings.editor.selected.configurable": "vcs.Git"
+    "settings.editor.selected.configurable": "preferences.pluginManager"
   }
 }]]></component>
   <component name="RecentsManager">
@@ -146,7 +151,7 @@
         <option name="ADVANCED_PROFILING_ENABLED" value="false" />
         <option name="STARTUP_PROFILING_ENABLED" value="false" />
         <option name="STARTUP_CPU_PROFILING_ENABLED" value="false" />
-        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="Java/Kotlin Method Sample (legacy)" />
+        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="System Trace" />
         <option name="STARTUP_NATIVE_MEMORY_PROFILING_ENABLED" value="false" />
         <option name="NATIVE_MEMORY_SAMPLE_RATE_BYTES" value="2048" />
       </Profilers>
@@ -171,5 +176,21 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+  </component>
+  <component name="play_dynamic_filters_status">
+    <option name="appIdToCheckInfo">
+      <map>
+        <entry key="com.core.physio">
+          <value>
+            <CheckInfo lastCheckTimestamp="1749437911806" />
+          </value>
+        </entry>
+        <entry key="com.core.physio.test">
+          <value>
+            <CheckInfo lastCheckTimestamp="1749437911806" />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
 </project>
