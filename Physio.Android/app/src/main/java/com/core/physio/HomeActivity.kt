@@ -65,7 +65,7 @@ fun HomeScreen(exerciseRepository: ExerciseRepository) {
         scope.launch {
             try {
                 //ToDo: Replace with actual patient ID
-                val apiExercises = exerciseRepository.getExercises("da81535d-d3d4-46d6-b749-7d9791b1f126")
+                val apiExercises = exerciseRepository.getExercises("42f0ffab-ce7e-45d2-ace8-fbb83e241d0c")
                 exercises = apiExercises.map { apiExercise ->
                     Exercise(
                         title = apiExercise.exerciseName,

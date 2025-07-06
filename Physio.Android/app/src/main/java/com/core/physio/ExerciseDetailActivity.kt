@@ -190,7 +190,7 @@ fun ExerciseDetailScreen(
                 color = Color.Gray
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(80.dp))
 
             Button(
                 onClick = onStartExercise,
