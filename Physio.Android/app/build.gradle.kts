@@ -76,4 +76,10 @@ dependencies {
     implementation(libs.tasks.vision)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    implementation(libs.logging.interceptor)
+    implementation("com.airbnb.android:lottie-compose:6.4.0")
 }

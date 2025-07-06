@@ -28,44 +28,6 @@ public class DatabaseService(IConfiguration configuration)
             await connection.QueryFirstOrDefaultAsync<Patient>(query, new { PhoneNumber = phoneNumber }));
     }
 
-    public async Task<IEnumerable<Exercise>?> GetRoutineExercisesByDateAsync(DateTime date, Guid phaseId)
-    {
-        const string query = """
-                             SELECT e.id, 
-                                    e.name, 
-                                    e.description, 
-                                    e.estimated_duration as EstimatedDuration,
-                                    e.repetitions,
-                                    e.difficulty 
-                             FROM routine r 
-                             JOIN exercise e on e.id = r.exercise_id
-                             WHERE execution_date = @Date
-                             AND phase_id = @PhaseId
-                             ORDER BY order_number;
-                             """;
-
-        return await ExecuteAsync(async connection =>
-            await connection.QueryAsync<Exercise>(query, new { Date = date, PhaseId = phaseId }));
-    }
-
-    public async Task<Exercise?> GetExerciseById(Guid id)
-    {
-        const string query = """
-                             SELECT id, 
-                                    name, 
-                                    description, 
-                                    repetitions, 
-                                    difficulty, 
-                                    estimated_duration as EstimatedDuration, 
-                                    instructions 
-                             FROM exercise
-                             WHERE id = @Id;
-                             """;
-
-        return await ExecuteAsync(async connection =>
-            await connection.QueryFirstOrDefaultAsync<Exercise>(query, new { Id = id }));
-    }
-
     private async Task<T> ExecuteAsync<T>(Func<IDbConnection, Task<T>> operation)
     {
         try

@@ -1,5 +1,13 @@
-CREATE
-EXTENSION IF NOT EXISTS "uuid-ossp";
+-- =========================================================
+-- ESQUEMA RELACIONAL COMPLETO - SIN JSON
+-- Sistema de Ejercicios de Fisioterapia Normalizado
+-- =========================================================
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- =========================================================
+-- TABLA DE PACIENTES
+-- =========================================================
 
 CREATE TABLE patient
 (
@@ -10,81 +18,231 @@ CREATE TABLE patient
     created_at   timestamp        DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE plan
-(
-    id         uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id uuid REFERENCES patient (id),
-    diagnosis  varchar(255),
-    created_at timestamp        DEFAULT CURRENT_TIMESTAMP
+-- =========================================================
+-- TABLAS DE EJERCICIOS
+-- =========================================================
+
+CREATE TABLE exercises (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    target_condition VARCHAR(50) NOT NULL,
+    difficulty_level INTEGER CHECK (difficulty_level BETWEEN 1 AND 5),
+    estimated_duration_minutes INTEGER,
+    instructions TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE phase
-(
-    id                    uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    number                int,
-    description           text,
-    estimated_duration    int,
-    frequency_description varchar(255),
-    created_at            timestamp        DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE exercise_phases (
+    id SERIAL PRIMARY KEY,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    phase_name VARCHAR(50) NOT NULL,
+    phase_order INTEGER NOT NULL,
+    instruction_message VARCHAR(200) NOT NULL,
+    success_message VARCHAR(200),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(exercise_id, phase_name),
+    UNIQUE(exercise_id, phase_order)
 );
 
-CREATE TABLE phase_assigned
-(
-    id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    plan_id      uuid REFERENCES plan (id),
-    phase_id     uuid REFERENCES phase (id),
-    order_number int,
-    status       int,
-    is_active    boolean,
-    created_at   timestamp        DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE phase_transitions (
+    id SERIAL PRIMARY KEY,
+    phase_id INTEGER NOT NULL REFERENCES exercise_phases(id) ON DELETE CASCADE,
+    parameter_name VARCHAR(50) NOT NULL,
+    operator VARCHAR(10) NOT NULL CHECK (operator IN ('<', '>', '<=', '>=', '==', 'between')),
+    value DECIMAL(8,3) NOT NULL,
+    value2 DECIMAL(8,3),
+    hysteresis DECIMAL(6,3) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE exercise
-(
-    id                 uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name               varchar(255),
-    description        text,
-    estimated_duration int,
-    repetitions        int,
-    difficulty         int,
-    instructions       text,
-    created_at         timestamp        DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE validation_parameters (
+    id SERIAL PRIMARY KEY,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    parameter_name VARCHAR(50) NOT NULL,
+    parameter_type VARCHAR(20) NOT NULL CHECK (parameter_type IN ('angle', 'time', 'distance', 'velocity')),
+    phase_specific VARCHAR(50),
+    default_value DECIMAL(8,3) NOT NULL,
+    min_value DECIMAL(8,3) NOT NULL,
+    max_value DECIMAL(8,3) NOT NULL,
+    unit VARCHAR(20) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(exercise_id, parameter_name)
 );
 
-CREATE TABLE routine
-(
-    id             uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    phase_id       uuid REFERENCES phase_assigned (id),
-    exercise_id    uuid REFERENCES exercise (id),
-    execution_date date,
-    order_number   int,
-    created_at     timestamp        DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE error_types (
+    id SERIAL PRIMARY KEY,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    error_code VARCHAR(50) NOT NULL,
+    error_name VARCHAR(100) NOT NULL,
+    error_category VARCHAR(30) NOT NULL CHECK (error_category IN ('position', 'time', 'form', 'safety')),
+    severity INTEGER NOT NULL CHECK (severity BETWEEN 1 AND 5),
+    feedback_message VARCHAR(200) NOT NULL,
+    correction_hint TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(exercise_id, error_code)
 );
 
-CREATE TABLE session
-(
-    id                  uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    patient_id          uuid REFERENCES patient (id),
-    plan_id             uuid REFERENCES plan (id),
-    phase_assigned_id   uuid REFERENCES phase_assigned (id),
-    routine_id          uuid REFERENCES routine (id),
-    exercise_id         uuid REFERENCES exercise (id),
-    start_time          timestamp,
-    end_time            timestamp,
-    total_time interval,
-    correct_repetitions int,
-    error_count         int,
-    average_accuracy    float,
-    created_at          timestamp        DEFAULT CURRENT_TIMESTAMP
+-- TABLA NORMALIZADA: validation_rules (SIN JSON)
+CREATE TABLE validation_rules (
+    id SERIAL PRIMARY KEY,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    rule_type VARCHAR(50) NOT NULL CHECK (rule_type IN ('angle_check', 'time_check', 'position_check', 'symmetry_check')),
+    error_code VARCHAR(50) NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 1,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (exercise_id, error_code) REFERENCES error_types(exercise_id, error_code)
 );
 
-CREATE INDEX idx_patient_phone_number ON patient (phone_number);
-CREATE INDEX idx_plan_patient_id ON plan (patient_id);
-CREATE INDEX idx_phase_assigned_plan_id ON phase_assigned (plan_id);
-CREATE INDEX idx_routine_phase_id ON routine (phase_id);
-CREATE INDEX idx_routine_execution_date ON routine (execution_date);
-CREATE INDEX idx_session_patient_id ON session (patient_id);
-CREATE INDEX idx_session_plan_id ON session (plan_id);
-CREATE INDEX idx_session_phase_assigned_id ON session (phase_assigned_id);
-CREATE INDEX idx_session_routine_id ON session (routine_id);
-CREATE INDEX idx_session_exercise_id ON session (exercise_id);
+-- NUEVA TABLA: Fases aplicables por regla (reemplaza applicable_phases JSON)
+CREATE TABLE rule_applicable_phases (
+    id SERIAL PRIMARY KEY,
+    rule_id INTEGER NOT NULL REFERENCES validation_rules(id) ON DELETE CASCADE,
+    phase_name VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(rule_id, phase_name)
+);
+
+-- NUEVA TABLA: Parámetros por regla (reemplaza parameters JSON)
+CREATE TABLE rule_parameters (
+    id SERIAL PRIMARY KEY,
+    rule_id INTEGER NOT NULL REFERENCES validation_rules(id) ON DELETE CASCADE,
+    parameter_key VARCHAR(50) NOT NULL,
+    parameter_value VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(rule_id, parameter_key)
+);
+
+-- TABLA NORMALIZADA: landmark_mappings (SIN JSON)
+CREATE TABLE landmark_mappings (
+    id SERIAL PRIMARY KEY,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    mapping_type VARCHAR(20) NOT NULL CHECK (mapping_type IN ('primary_joint', 'secondary_joint', 'reference_point')),
+    joint_name VARCHAR(50) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(exercise_id, mapping_type, joint_name)
+);
+
+-- NUEVA TABLA: Índices de landmarks (reemplaza landmark_indices JSON)
+CREATE TABLE landmark_indices (
+    id SERIAL PRIMARY KEY,
+    mapping_id INTEGER NOT NULL REFERENCES landmark_mappings(id) ON DELETE CASCADE,
+    landmark_index INTEGER NOT NULL,
+    index_order INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(mapping_id, index_order)
+);
+
+-- =========================================================
+-- TABLAS DE SESIONES Y REPETICIONES
+-- =========================================================
+
+CREATE TABLE exercise_sessions (
+    id SERIAL PRIMARY KEY,
+    session_uuid UUID DEFAULT uuid_generate_v4() UNIQUE,
+    patient_id UUID NOT NULL REFERENCES patient(id) ON DELETE CASCADE,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    session_start TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    session_end TIMESTAMP WITH TIME ZONE,
+    total_reps INTEGER DEFAULT 0,
+    successful_reps INTEGER DEFAULT 0,
+    total_errors INTEGER DEFAULT 0,
+    session_score DECIMAL(5,2),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABLA NORMALIZADA: exercise_repetitions (SIN JSON)
+CREATE TABLE exercise_repetitions (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER NOT NULL REFERENCES exercise_sessions(id) ON DELETE CASCADE,
+    rep_number INTEGER NOT NULL,
+    effective_time_ms INTEGER NOT NULL,
+    range_of_motion_degrees DECIMAL(6,2),
+    error_count INTEGER DEFAULT 0,
+    max_angle_reached DECIMAL(6,2),
+    min_angle_reached DECIMAL(6,2),
+    rep_start_time TIMESTAMP WITH TIME ZONE,
+    rep_end_time TIMESTAMP WITH TIME ZONE,
+    quality_score DECIMAL(5,2),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(session_id, rep_number)
+);
+
+-- NUEVA TABLA: Errores detectados por repetición (reemplaza errors_detected JSON)
+CREATE TABLE repetition_errors (
+    id SERIAL PRIMARY KEY,
+    repetition_id INTEGER NOT NULL REFERENCES exercise_repetitions(id) ON DELETE CASCADE,
+    error_code VARCHAR(50) NOT NULL,
+    detected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(repetition_id, error_code)
+);
+
+-- =========================================================
+-- TABLA DE ASIGNACIONES
+-- =========================================================
+
+CREATE TABLE patient_exercise_assignments (
+    id SERIAL PRIMARY KEY,
+    patient_id UUID NOT NULL REFERENCES patient(id) ON DELETE CASCADE,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    assigned_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    target_reps_per_session INTEGER DEFAULT 10,
+    target_sessions_per_week INTEGER DEFAULT 3,
+    notes TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(patient_id, exercise_id)
+);
+
+-- =========================================================
+-- ÍNDICES PARA OPTIMIZACIÓN
+-- =========================================================
+
+-- Índices para pacientes
+CREATE INDEX idx_patient_phone_number ON patient(phone_number);
+
+-- Índices para sesiones
+CREATE INDEX idx_exercise_sessions_patient ON exercise_sessions(patient_id);
+CREATE INDEX idx_exercise_sessions_patient_exercise ON exercise_sessions(patient_id, exercise_id);
+CREATE INDEX idx_exercise_sessions_uuid ON exercise_sessions(session_uuid);
+
+-- Índices para repeticiones
+CREATE INDEX idx_exercise_repetitions_session ON exercise_repetitions(session_id);
+CREATE INDEX idx_exercise_repetitions_session_rep ON exercise_repetitions(session_id, rep_number);
+CREATE INDEX idx_exercise_repetitions_time ON exercise_repetitions(effective_time_ms);
+CREATE INDEX idx_exercise_repetitions_range ON exercise_repetitions(range_of_motion_degrees);
+
+-- Índices para errores de repetición
+CREATE INDEX idx_repetition_errors_repetition ON repetition_errors(repetition_id);
+CREATE INDEX idx_repetition_errors_code ON repetition_errors(error_code);
+
+-- Índices para asignaciones
+CREATE INDEX idx_patient_assignments_patient ON patient_exercise_assignments(patient_id);
+CREATE INDEX idx_patient_assignments_active ON patient_exercise_assignments(patient_id, is_active);
+
+-- Índices para ejercicios
+CREATE INDEX idx_exercises_condition ON exercises(target_condition);
+CREATE INDEX idx_exercise_phases_exercise_order ON exercise_phases(exercise_id, phase_order);
+CREATE INDEX idx_validation_rules_exercise_active ON validation_rules(exercise_id, is_active);
+
+-- Índices para las nuevas tablas relacionales
+CREATE INDEX idx_rule_applicable_phases_rule ON rule_applicable_phases(rule_id);
+CREATE INDEX idx_rule_parameters_rule ON rule_parameters(rule_id);
+CREATE INDEX idx_landmark_indices_mapping ON landmark_indices(mapping_id);
+CREATE INDEX idx_landmark_indices_mapping_order ON landmark_indices(mapping_id, index_order);
