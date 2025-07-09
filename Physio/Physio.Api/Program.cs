@@ -19,7 +19,7 @@ builder.Services.AddSwaggerGen(c =>
             Email = "yagustinp1@upao.edu.pe"
         }
     });
-    
+
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath))
@@ -35,16 +35,13 @@ builder.Services.AddSingleton<TwilioService>();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Physio API v1");
-        c.RoutePrefix = string.Empty;
-    });
-    app.MapOpenApi();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Physio API v1");
+    c.RoutePrefix = string.Empty;
+});
+app.MapOpenApi();
 
 app.UseHttpsRedirection();
 
