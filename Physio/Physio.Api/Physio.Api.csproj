@@ -4,12 +4,15 @@
         <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);1591</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="Dapper" Version="2.1.66"/>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.1"/>
         <PackageReference Include="Npgsql" Version="9.0.2"/>
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="7.0.0"/>
         <PackageReference Include="Twilio" Version="7.10.0"/>
     </ItemGroup>
 
