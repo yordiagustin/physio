@@ -123,49 +123,49 @@ public class SessionController(IConfiguration configuration) : ControllerBase
         {
             await using var connection = new Npgsql.NpgsqlConnection(_connectionString);
             const string query = """
-                                 SELECT 
-                                     es.session_uuid as SessionUuid,
-                                     p.name || ' ' || p.surname as PatientName,
-                                     e.name as ExerciseName,
-                                     
-                                     -- SESSION DATE (readable format)
-                                     DATE(es.session_start) as SessionDate,
-                                     es.session_start as SessionStart,
-                                     es.session_end as SessionEnd,
-                                     
-                                     -- TOTAL TIME (in minutes, rounded)
-                                     ROUND(
-                                         EXTRACT(EPOCH FROM (COALESCE(es.session_end, CURRENT_TIMESTAMP) - es.session_start)) / 60.0, 
-                                         1
-                                     ) as TotalDurationMinutes,
-                                     
-                                     -- COMPLETED REPETITIONS
-                                     es.total_reps as RepetitionsCompleted,
-                                     
-                                     -- TOTAL ERRORS
-                                     es.total_errors as TotalErrors,
-                                     
-                                     -- AVERAGE RANGE OF MOTION (only repetitions with range <= 90°)
-                                     ROUND(
-                                         COALESCE(
-                                             AVG(er.range_of_motion_degrees) FILTER (WHERE er.range_of_motion_degrees <= 90),
-                                             0
-                                         ), 1
-                                     ) as AvgRangeOfMotion,
-                                     
-                                     -- SESSION SCORE (convert to percentage if it's between 0-1)
-                                     CASE 
-                                         WHEN es.session_score <= 1.0 THEN ROUND(es.session_score * 100, 1)
-                                         ELSE ROUND(es.session_score, 1)
-                                     END as SessionScore
+                SELECT 
+                    es.session_uuid as SessionUuid,
+                    p.name || ' ' || p.surname as PatientName,
+                    e.name as ExerciseName,
+                    
+                    -- SESSION DATE (readable format)
+                    DATE(es.session_start) as SessionDate,
+                    es.session_start as SessionStart,
+                    es.session_end as SessionEnd,
+                    
+                    -- TOTAL TIME (in minutes, rounded)
+                    ROUND(
+                        EXTRACT(EPOCH FROM (COALESCE(es.session_end, CURRENT_TIMESTAMP) - es.session_start)) / 60.0, 
+                        1
+                    ) as TotalDurationMinutes,
+                    
+                    -- COMPLETED REPETITIONS
+                    es.total_reps as RepetitionsCompleted,
+                    
+                    -- TOTAL ERRORS
+                    es.total_errors as TotalErrors,
+                    
+                    -- AVERAGE RANGE OF MOTION (only repetitions with range <= 90°)
+                    ROUND(
+                        COALESCE(
+                            AVG(er.range_of_motion_degrees) FILTER (WHERE er.range_of_motion_degrees <= 90),
+                            0
+                        ), 1
+                    ) as AvgRangeOfMotion,
+                    
+                    -- SESSION SCORE (convert to percentage if it's between 0-1)
+                    CASE 
+                        WHEN es.session_score <= 1.0 THEN ROUND(es.session_score * 100, 1)
+                        ELSE ROUND(es.session_score, 1)
+                    END as SessionScore
 
-                                 FROM exercise_sessions es
-                                 JOIN exercises e ON es.exercise_id = e.id
-                                 JOIN patient p ON es.patient_id = p.id
-                                 LEFT JOIN exercise_repetitions er ON es.id = er.session_id
-                                 WHERE es.session_uuid = @SessionId
-                                 GROUP BY es.id, p.name, p.surname, e.name, es.session_start, es.session_end;
-                                 """;
+                FROM exercise_sessions es
+                JOIN exercises e ON es.exercise_id = e.id
+                JOIN patient p ON es.patient_id = p.id
+                LEFT JOIN exercise_repetitions er ON es.id = er.session_id
+                WHERE es.session_uuid = @SessionId
+                GROUP BY es.id, p.name, p.surname, e.name, es.session_start, es.session_end;
+                """;
 
             var result = await connection.QuerySingleOrDefaultAsync<SessionResults>(query, new { SessionId = sessionId });
             
@@ -175,6 +175,69 @@ public class SessionController(IConfiguration configuration) : ControllerBase
             }
             
             return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            // Log the exception here if you have a logger
+            return StatusCode(500, new { message = "Database operation failed.", error = ex.Message });
+        }
+    }
+
+    [HttpGet("history")]
+    public async Task<IActionResult> GetSessionHistory([FromQuery] Guid patientId)
+    {
+        try
+        {
+            await using var connection = new Npgsql.NpgsqlConnection(_connectionString);
+            const string query = """
+                SELECT 
+                    es.session_uuid as SessionUuid,
+                    p.name || ' ' || p.surname as PatientName,
+                    e.name as ExerciseName,
+                    
+                    -- SESSION DATE (readable format)
+                    DATE(es.session_start) as SessionDate,
+                    es.session_start as SessionStart,
+                    es.session_end as SessionEnd,
+                    
+                    -- TOTAL TIME (in minutes, rounded)
+                    ROUND(
+                        EXTRACT(EPOCH FROM (COALESCE(es.session_end, CURRENT_TIMESTAMP) - es.session_start)) / 60.0, 
+                        1
+                    ) as TotalDurationMinutes,
+                    
+                    -- COMPLETED REPETITIONS
+                    es.total_reps as RepetitionsCompleted,
+                    
+                    -- TOTAL ERRORS
+                    es.total_errors as TotalErrors,
+                    
+                    -- AVERAGE RANGE OF MOTION (only repetitions with range <= 90°)
+                    ROUND(
+                        COALESCE(
+                            AVG(er.range_of_motion_degrees) FILTER (WHERE er.range_of_motion_degrees <= 90),
+                            0
+                        ), 1
+                    ) as AvgRangeOfMotion,
+                    
+                    -- SESSION SCORE (convert to percentage if it's between 0-1)
+                    CASE 
+                        WHEN es.session_score <= 1.0 THEN ROUND(es.session_score * 100, 1)
+                        ELSE ROUND(es.session_score, 1)
+                    END as SessionScore
+
+                FROM exercise_sessions es
+                JOIN exercises e ON es.exercise_id = e.id
+                JOIN patient p ON es.patient_id = p.id
+                LEFT JOIN exercise_repetitions er ON es.id = er.session_id
+                WHERE es.patient_id = @PatientId
+                GROUP BY es.id, p.name, p.surname, e.name, es.session_start, es.session_end
+                ORDER BY es.session_start DESC;
+                """;
+
+            var results = await connection.QueryAsync<SessionResults>(query, new { PatientId = patientId });
+
+            return Ok(results);
         }
         catch (Exception ex)
         {
